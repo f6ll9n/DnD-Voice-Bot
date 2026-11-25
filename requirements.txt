@@ -1,0 +1,28 @@
+# Голос и Discord
+discord.py[voice]>=2.4,<3.0
+discord-ext-voice-recv>=0.5.0
+davey>=0.1.4
+
+# Речь -> текст (CUDA через CTranslate2, torch не нужен)
+faster-whisper>=1.0.3
+
+# Детектор речи (лёгкий, без torch)
+webrtcvad-wheels>=2.0.14
+
+# Аудио
+numpy>=1.26
+soxr>=0.3.7
+miniaudio>=1.59
+
+# Текст -> речь (локально Silero / Piper + опционально edge-tts)
+# Для Silero на Windows CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+scipy>=1.11
+piper-tts>=1.4.0
+edge-tts>=6.1.12
+
+# LLM через OpenAI-совместимый API (LM Studio / Ollama / vLLM)
+openai>=1.40
+
+python-dotenv>=1.0
+PyYAML>=6.0

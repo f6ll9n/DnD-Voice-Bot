@@ -1,0 +1,121 @@
+# ============================================================
+#  DnD Voice Bot — конфигурация
+#  Всё, что ниже, можно менять без правки кода.
+# ============================================================
+
+discord:
+  prefix: "!"
+  # 0 = работать на любом сервере, куда добавили бота
+  guild_id: 0
+  # Дублировать реплики текстом в канал (удобно для логов и отладки)
+  post_to_chat: true
+  # all     — в чат писать и реплики игроков, и ответы NPC (полная стенограмма)
+  # replies — только ответы NPC (чистый сценарий, удобно копировать)
+  post_mode: "all"
+
+  # Автоподключение при запуске (правой кнопкой по каналу -> Копировать ID)
+  auto_join_voice: 0     # ID голосового канала
+  auto_join_text: 0      # ID текстового канала для реплик и логов
+
+llm:
+  # Ollama — бесплатно, работает на CPU, ставится одним установщиком (ollama.com)
+  # Модель: ollama pull qwen2.5:3b
+  base_url: "http://127.0.0.1:11434/v1"
+  api_key: "ollama"                       # ключ не проверяется, но клиенту нужна строка
+  model: "qwen2.5:3b"                     # имя как в `ollama list`
+  #
+  # Вместо Ollama можно LM Studio:
+  #   base_url: "http://127.0.0.1:1234/v1"
+  #   model: "qwen2.5-7b-instruct"
+  temperature: 0.6
+  max_tokens: 140                         # короткие реплики = быстрая озвучка
+  history_turns: 8                        # сколько пар реплик диалога помнить (меньше = стабильнее на 3B)
+
+stt:
+  # local  — Whisper на этой машине
+  # remote — Whisper на другой машине (там запущен stt_server.bat)
+  engine: local
+  remote_url: "http://127.0.0.1:8765"
+  remote_token: ""                         # пароль для STT-сервера (необязательно)
+
+  # auto = small на видеокарте, base на CPU. Можно вписать явно:
+  # tiny | base | small | medium | large-v3
+  model: "auto"
+  device: "auto"                           # auto | cuda | cpu
+  compute_type: "auto"                     # auto | int8_float16 (GPU) | int8 (CPU)
+  language: "ru"
+  beam_size: 3                            # 1 — быстрее, 3 — точнее (разница ~0.3 с)
+  # Подсказка распознавателю отключена по умолчанию, чтобы Whisper не галлюцинировал её на тишине.
+  initial_prompt: ""
+
+vad:
+  aggressiveness: 2      # 0..3, выше = строже к шуму (2 — баланс между речью и фоном)
+  start_ms: 100          # столько речи подряд нужно, чтобы начать фразу
+  end_ms: 600            # столько тишины = конец фразы (меньше = быстрее, но рвёт паузы)
+  min_speech_ms: 300     # короче — считаем шумом и игнорируем
+  max_utterance_s: 12    # принудительный обрез длинной речи
+
+tts:
+  # silero — локально, офлайн, 48 кГц, живые русские голоса (eugene, aidar, xenia, baya, kseniya).
+  # piper  — локально, офлайн, 22 кГц, легче на слабом CPU.
+  # edge   — Microsoft, онлайн, бывает недоступен и тормозит.
+  engine: "silero"
+  silero_model: "models/silero/v5_ru.pt"
+  piper_model: "models/piper/ru_RU-ruslan-medium.onnx"
+
+# Откуда бот берёт реплики игроков:
+#   voice — слушает голосовой канал (нужен Whisper и видеокарта)
+#   text  — читает сообщения в текстовом канале (Whisper не нужен вообще,
+#          хватит любого ноутбука, можно всё держать в облаке)
+#   both  — и то, и другое
+input:
+  mode: "voice"
+  # ID текстового канала для реплик. 0 = канал, где вызвали !join
+  text_channel: 0
+  # true — требовать имя персонажа в тексте (как в голосовом режиме)
+  # false — любое сообщение в канале считается обращением к нему
+  text_requires_name: false
+  # Если текст в канал кладёт другой бот-транскрайбер — разрешить читать его сообщения
+  accept_bots: false
+  # Список ID ботов, которым доверяем (пусто = любому боту в этом канале)
+  bot_whitelist: []
+  # Сколько секунд после ответа NPC ловить продолжение разговора (вопрос/обращение на «ты») без повтора имени
+  follow_up_s: 10
+
+# Перебивать ли бота, когда заговорил человек.
+# true  — живое общение, бот замолкает
+# false — бот договаривает реплику до конца
+interrupt_on_speech: true
+
+# Общий лор кампании, подставляется в системный промпт всем персонажам
+world_file: "world/campaign.md"
+
+default_persona: "barman"
+
+personas:
+  barman:
+    title: "Хома, бармен"
+    file: "personas/barman.md"
+    voice: "eugene"
+    rate: "-6%"
+    pitch: "-4Hz"
+    addressing: "name"     # name | always | llm
+    trigger_words: ["бармен", "хома", "хом", "кома", "фома", "трактирщик", "хозяин"]
+
+  dm:
+    title: "Мастер"
+    file: "personas/dm.md"
+    voice: "xenia"
+    rate: "+0%"
+    pitch: "+0Hz"
+    addressing: "name"
+    trigger_words: ["мастер", "дм", "dm"]
+
+  guard:
+    title: "Вельд, капитан стражи"
+    file: "personas/guard.md"
+    voice: "aidar"
+    rate: "-2%"
+    pitch: "+0Hz"
+    addressing: "name"
+    trigger_words: ["стража", "стражник", "вельд", "капитан"]
