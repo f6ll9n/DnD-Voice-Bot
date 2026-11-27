@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -20,6 +22,11 @@ from . import audio
 from .config import STTCfg
 
 log = logging.getLogger(__name__)
+
+_HALLUCINATIONS = re.compile(
+    r"^(?:субтитры(?:\s+создавал|\s+субтитров)?(?:\s+[\w.]+){0,3}|продолжение следует|спасибо за просмотр|подписывайтесь на канал)\W*$",
+    re.IGNORECASE,
+)
 
 # Что брать, когда в конфиге стоит "auto"
 # base для русского выдаёт абракадабру — минимально пригодный это small.
@@ -92,13 +99,23 @@ class Transcriber(_Stats):
 
         t0 = time.perf_counter()
         log.info("Загружаю Whisper '%s' (%s / %s)...", model_name, device, compute)
+        threads = min(6, os.cpu_count() or 4) if device == "cpu" else 0
         try:
             # Сначала пробуем локальный кэш, чтобы не ходить на huggingface.co при каждом запуске.
             self._model = WhisperModel(
-                model_name, device=device, compute_type=compute, local_files_only=True
+                model_name,
+                device=device,
+                compute_type=compute,
+                cpu_threads=threads,
+                local_files_only=True,
             )
         except Exception:
-            self._model = WhisperModel(model_name, device=device, compute_type=compute)
+            self._model = WhisperModel(
+                model_name,
+                device=device,
+                compute_type=compute,
+                cpu_threads=threads,
+            )
         log.info("Whisper готов за %.1f с", time.perf_counter() - t0)
 
     @property
@@ -118,6 +135,12 @@ class Transcriber(_Stats):
         if samples.size < audio.STT_RATE // 5:  # меньше 0.2 с
             return ""
 
+        # Отсекаем совсем тихий шорох до Whisper, чтобы не забивать очередь при 3+ игроках.
+        rms = float(np.sqrt(np.mean(samples * samples)))
+        peak = float(np.max(np.abs(samples)))
+        if rms < 0.006 or peak < 0.025:
+            return ""
+
         t0 = time.perf_counter()
         segments, _info = self._model.transcribe(
             samples,
@@ -125,12 +148,16 @@ class Transcriber(_Stats):
             beam_size=self.cfg.beam_size,
             condition_on_previous_text=False,
             vad_filter=True,
+            repetition_penalty=1.15,
+            no_repeat_ngram_size=3,
             initial_prompt=self.cfg.initial_prompt or None,
             temperature=0.0,
         )
         text = " ".join(
             s.text.strip() for s in segments if getattr(s, "no_speech_prob", 0.0) <= 0.85
         ).strip()
+        if _HALLUCINATIONS.match(text):
+            text = ""
         self._stats.append(time.perf_counter() - t0)
         return text
 

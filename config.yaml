@@ -18,11 +18,11 @@ discord:
   auto_join_text: 0      # ID текстового канала для реплик и логов
 
 llm:
-  # Ollama — бесплатно, работает на CPU, ставится одним установщиком (ollama.com)
-  # Модель: ollama pull qwen2.5:3b
+  # Ollama — бесплатно, ставится одним установщиком (ollama.com)
+  # Модель: ollama pull gemma3:4b (влезает в 6 ГБ VRAM, умнее и живее qwen2.5:3b)
   base_url: "http://127.0.0.1:11434/v1"
   api_key: "ollama"                       # ключ не проверяется, но клиенту нужна строка
-  model: "qwen2.5:3b"                     # имя как в `ollama list`
+  model: "gemma3:4b"                      # имя как в `ollama list`
   #
   # Вместо Ollama можно LM Studio:
   #   base_url: "http://127.0.0.1:1234/v1"
@@ -44,16 +44,16 @@ stt:
   device: "auto"                           # auto | cuda | cpu
   compute_type: "auto"                     # auto | int8_float16 (GPU) | int8 (CPU)
   language: "ru"
-  beam_size: 3                            # 1 — быстрее, 3 — точнее (разница ~0.3 с)
+  beam_size: 1                            # 1 — быстрее в ~2 раза (критично при нескольких игроках в войсе)
   # Подсказка распознавателю отключена по умолчанию, чтобы Whisper не галлюцинировал её на тишине.
   initial_prompt: ""
 
 vad:
   aggressiveness: 2      # 0..3, выше = строже к шуму (2 — баланс между речью и фоном)
   start_ms: 100          # столько речи подряд нужно, чтобы начать фразу
-  end_ms: 600            # столько тишины = конец фразы (меньше = быстрее, но рвёт паузы)
+  end_ms: 500            # столько тишины = конец фразы (быстрее реакция)
   min_speech_ms: 300     # короче — считаем шумом и игнорируем
-  max_utterance_s: 12    # принудительный обрез длинной речи
+  max_utterance_s: 10    # принудительный обрез длинной речи
 
 tts:
   # silero — локально, офлайн, 48 кГц, живые русские голоса (eugene, aidar, xenia, baya, kseniya).

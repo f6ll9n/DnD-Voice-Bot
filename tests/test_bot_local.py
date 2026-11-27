@@ -15,6 +15,7 @@ from app.config import LLMCfg, PersonaCfg, ROOT as CFG_ROOT, TTSCfg, load_config
 from app import dave  # noqa: E402
 from app.llm import LLM, is_local_url, is_low_quality_reply, strip_speaker_prefix  # noqa: E402
 from app.pipeline import Pipeline  # noqa: E402
+from app.stt import STTCfg, Transcriber, _HALLUCINATIONS  # noqa: E402
 from app.tts import SILERO_SPEAKERS, Speaker, rate_to_length_scale  # noqa: E402
 
 
@@ -150,6 +151,16 @@ class LocalConfigAndVoiceTests(unittest.TestCase):
         self.assertTrue(Pipeline._looks_like_followup("Держи пять медяков за пиво"))
         self.assertFalse(Pipeline._looks_like_followup("Ну да"))
         self.assertFalse(Pipeline._looks_like_followup("Он, я понял, спасибо"))
+
+    def test_stt_skips_quiet_noise_and_detects_hallucinations(self) -> None:
+        import numpy as np
+
+        tr = Transcriber(STTCfg())
+        tr._model = object()  # проверка срабатывает до обращения к модели
+        quiet = np.full(48_000, 10, dtype=np.int16)
+        self.assertEqual(tr.transcribe(quiet), "")
+        self.assertIsNotNone(_HALLUCINATIONS.match("Субтитры субтитров А.Семкин"))
+        self.assertIsNone(_HALLUCINATIONS.match("Хома, налей пива!"))
 
 
 if __name__ == "__main__":

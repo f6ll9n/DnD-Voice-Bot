@@ -126,6 +126,9 @@ class LLM:
         *,
         temperature: float,
     ) -> str:
+        kwargs: dict = {}
+        if is_local_url(self.cfg.base_url):
+            kwargs["extra_body"] = {"options": {"num_ctx": 4096}}
         resp = await self.client.chat.completions.create(
             model=self.cfg.model,
             messages=messages,  # type: ignore[arg-type]
@@ -134,6 +137,7 @@ class LLM:
             max_tokens=self.cfg.max_tokens,
             presence_penalty=0.1,
             frequency_penalty=0.15,
+            **kwargs,
         )
         return (resp.choices[0].message.content or "").strip()
 
@@ -178,12 +182,25 @@ class LLM:
         history.append({"role": "assistant", "content": answer})
 
         self._turns_since_summary[history_key] += 1
-        if self._turns_since_summary[history_key] >= 3 or len(history) >= (history.maxlen or 16):
+        if self._turns_since_summary[history_key] >= 6 or len(history) >= (history.maxlen or 16):
             self._turns_since_summary[history_key] = 0
             snapshot = list(history)[-10:]
             self._schedule_summary(history_key, persona, memory, snapshot)
 
         return answer
+
+    async def warmup(self) -> None:
+        """Прогревает модель с тем же num_ctx=4096, чтобы не перегружать её на первом ответе."""
+        kwargs: dict = {}
+        if is_local_url(self.cfg.base_url):
+            kwargs["extra_body"] = {"options": {"num_ctx": 4096}}
+        await self.client.chat.completions.create(
+            model=self.cfg.model,
+            messages=[{"role": "user", "content": "ok"}],
+            max_tokens=1,
+            temperature=0.0,
+            **kwargs,
+        )
 
     def _schedule_summary(
         self,
@@ -226,11 +243,15 @@ class LLM:
             "Новая краткая память:"
         )
         try:
+            kwargs: dict = {}
+            if is_local_url(self.cfg.base_url):
+                kwargs["extra_body"] = {"options": {"num_ctx": 4096}}
             resp = await self.client.chat.completions.create(
                 model=self.cfg.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
-                max_tokens=110,
+                max_tokens=80,
+                **kwargs,
             )
             summary = (resp.choices[0].message.content or "").strip()
             if summary and not _CJK_RE.search(summary):

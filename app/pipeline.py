@@ -88,12 +88,7 @@ class Pipeline:
     async def _warmup_llm(self) -> None:
         """Первый запрос грузит модель в память — до 15 с. Лучше это сделать до игры."""
         try:
-            await self.llm.client.chat.completions.create(
-                model=self.cfg.llm.model,
-                messages=[{"role": "user", "content": "ok"}],
-                max_tokens=1,
-                temperature=0.0,
-            )
+            await self.llm.warmup()
             log.info("LLM прогрета")
         except Exception as exc:
             log.warning("Не удалось прогреть LLM: %s", exc)
